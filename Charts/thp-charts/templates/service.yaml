@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "thp.fullname" . }}
+  labels:
+    {{- include "thp.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: web
+      protocol: TCP
+      name: web
+    - port: 9001
+      targetPort: cortex
+      protocol: TCP
+      name: cortex
+  selector:
+    {{- include "thp.selectorLabels" . | nindent 4 }}

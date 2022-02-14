@@ -1,0 +1,3 @@
+[[tls.certificates]]
+  certFile = "/certs/cip.crt"
+  keyFile = "/certs/cip.key"

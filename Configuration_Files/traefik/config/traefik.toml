@@ -1,0 +1,41 @@
+[global]
+  checkNewVersion = true
+
+# Enable the Dashboard
+[api]
+  dashboard = true
+
+# Write out Traefik logs
+[log]
+  level = "INFO"
+  filePath = "/traefik.log"
+
+[entryPoints.http]
+  address = ":80"
+  # Redirect to HTTPS (why wouldn't you?)
+  [entryPoints.http.http.redirections.entryPoint]
+    to = "https"
+    scheme = "https"
+
+[entryPoints.https]
+  address = ":443"
+  [entryPoints.https.http.tls]
+
+[entryPoints.dns-udp]
+  address = ":53/udp"
+
+[entryPoints.dns-tcp]
+  address = ":53"
+
+# Docker Traefik provider
+[providers.docker]
+  endpoint = "unix:///var/run/docker.sock"
+  swarmMode = true
+  watch = true
+  
+[providers.file]
+  directory = "/traefik/dynamic"
+  watch = true
+
+[serversTransport]
+  insecureSkipVerify= true

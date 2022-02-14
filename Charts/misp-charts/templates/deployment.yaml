@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "misp.fullname" . }}
+  labels:
+    {{- include "misp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "misp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "misp.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "misp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: REDIS_FQDN
+              value: 0.0.0.0
+            - name: INIT
+              value: 'true'
+            - name: CRON_USER_ID
+              value: '1'
+            - name: MYSQL_HOST
+              value: 0.0.0.0
+            - name: MYSQL_USER
+              value: misp
+            - name: MYSQL_PASSWORD
+              value: misp
+            - name: MYSQL_DATABASE
+              value: misp
+          volumeMounts:
+            - name: misp-www
+              mountPath: /var/www/MISPi/app/Config
+          ports:
+            - name: web
+              containerPort: 443
+              protocol: TCP
+              #livenessProbe:
+                  # httpGet:
+                    #       path: /
+              # port: web
+              #  readinessProbe:
+                  #   httpGet:
+                    #path: /
+              #   port: web
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: misp-db
+          image: mysql:8.0.19
+          args:
+            - "--default-authentication-plugin=mysql_native_password"
+          env:
+            - name: MYSQL_USER
+              value: misp
+            - name: MYSQL_PASSWORD
+              value: misp
+            - name: MYSQL_ROOT_PASSWORD
+              value: misp
+            - name: MYSQL_DATABASE
+              value: misp
+          volumeMounts:
+            - name: misp-db
+              mountPath: /var/lib/mysql
+        - name: misp-modules
+          image: coolacid/misp-docker:modules-latest
+          env:
+            - name: REDIS_BACKEND
+              value: 0.0.0.0
+        - name: misp-redis
+          image: redis:5.0.6
+      volumes:
+        - name: misp-db
+          persistentVolumeClaim:
+            claimName: misp-db
+        - name: misp-www
+          persistentVolumeClaim:
+            claimName: misp-www
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

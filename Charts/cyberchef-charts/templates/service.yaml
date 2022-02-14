@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cyberchef.fullname" . }}
+  labels:
+    {{- include "cyberchef.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: web
+      protocol: TCP
+      name: web
+  selector:
+    {{- include "cyberchef.selectorLabels" . | nindent 4 }}

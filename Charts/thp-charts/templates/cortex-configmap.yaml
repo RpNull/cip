@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thp-cortex-conf
+data:
+  application.conf: |
+          ## SECRET KEY
+          #
+          # The secret key is used to secure cryptographic functions.
+          #
+          # IMPORTANT: If you deploy your application to several  instances,  make
+          # sure to use the same key.
+          play.http.secret.key="imjusttestingthings"
+
+          ## ElasticSearch
+          search {
+            index = cortex
+            uri = "http://0.0.0.0:9200"
+          }
+
+          ## Cache
+          cache.job = 10 minutes
+
+          job {
+            runner = [docker, process]
+          }
+ 
+          ## ANALYZERS
+          analyzer {
+            urls = [
+              "/opt/cortex/analyzers"
+              #"/absolute/path/of/analyzers"
+            ]
+          }
+
+          # RESPONDERS
+          responder {
+            urls = [
+              "/opt/cortex/responders"
+              #"/absolute/path/of/responders"
+            ]
+          }

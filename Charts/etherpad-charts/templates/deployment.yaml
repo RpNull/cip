@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "etherpad.fullname" . }}
+  labels:
+    {{- include "etherpad.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "etherpad.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "etherpad.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "etherpad.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ETHERPAD_TITLE
+              value: CIP
+            - name: ETHERPAD_PORT
+              value: "9001"
+            - name: ETHERPAD_DB_TYPE
+              value: mysql
+            - name: ETHERPAD_DB_HOST
+              value: 0.0.0.0
+            - name: ETHERPAD_DB_USER
+              value: etherpad
+            - name: ETHERPAD_DB_PASSWORD
+              value: etherpad
+            - name: ETHERPAD_DB_NAME
+              value: etherpad
+          volumeMounts:
+            - name: data
+              mountPath: /opt/etherpad-lite/var
+          ports:
+            - name: web
+              containerPort: 9001
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: web
+          readinessProbe:
+            httpGet:
+              path: /
+              port: web
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: etherpad-db
+          image: mysql:5.7
+          env:
+            - name: MYSQL_DATABASE
+              value: etherpad
+            - name: MYSQL_USER
+              value: etherpad
+            - name: MYSQL_PASSWORD
+              value: etherpad
+            - name: MYSQL_ROOT_PASSWORD
+              value: etherpad
+          volumeMounts:
+            - name: etherpad-db
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: etherpad-data
+        - name: etherpad-db
+          persistentVolumeClaim:
+            claimName: etherpad-db 
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

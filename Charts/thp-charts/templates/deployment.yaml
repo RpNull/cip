@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "thp.fullname" . }}
+  labels:
+    {{- include "thp.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "thp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "thp.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "thp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: thp-hive-db
+              mountPath: /opt/thp/thehive/db
+            - name: thp-hive-data
+              mountPath: /opt/thp/thehive/data/db
+            - name: thp-hive-conf
+              mountPath: /etc/thehive/application.conf
+          ports:
+            - name: web
+              containerPort: 9000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: web
+          readinessProbe:
+            httpGet:
+              path: /
+              port: web
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: thp-cortex
+          image: cortex_analyzers:local 
+          ports:
+            - name: cortex
+              containerPort: 9001
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: cortex
+          readinessProbe:
+            httpGet:
+              path: /
+              port: cortex
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: thp-cortex
+              mountPath: /opt/cortex/jobs
+            - name: thp-cortex-conf
+              mountPath: /etc/cortex/application.conf
+        - name: thp-elastic
+          image: elasticsearch:7.1.0
+          env:
+            - name: http.host
+              value: '0.0.0.0'
+            - name: discovery.type
+              value: single-node
+            - name: cluster.name
+              value: cluster.local
+            - name: script.allowed_types
+              value: inline
+            - name: thread_pool.search.queue_size
+              value: '100000'
+            - name: thread_pool.write.queue_size
+              value: '10000'
+            - name: gateway.recover_after_nodes
+              value: '1'
+            - name: xpack.security.enabled
+              value: 'false'
+            - name: bootstrap.memory_lock
+              value: 'true' 
+            - name: ES_JAVA_OPTS
+              value: '-Xms256m -Xmx256m'
+          volumeMounts:
+            - name: thp-es
+              mountPath: /usr/share/elasticsearch/data
+      volumes:
+        - name: thp-es
+          persistentVolumeClaim:
+            claimName: thp-es
+        - name: thp-cortex
+          persistentVolumeClaim:
+            claimName: thp-cortex
+        - name: thp-hive-db
+          persistentVolumeClaim:
+            claimName: thp-hive-db
+        - name: thp-hive-data
+          persistentVolumeClaim:
+            claimName: thp-hive-data 
+        - name: thp-hive-conf
+          configMap:
+            name: thp-hive-conf
+        - name: thp-cortex-conf
+          configMap:
+            name: thp-cortex-conf 
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
